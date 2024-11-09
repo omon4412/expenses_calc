@@ -1,0 +1,14 @@
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  name: "dbname"
+
+server:
+  port: 8080
+  timeout: 60
+
+jwt:
+  secret: "ghgdfjkhgjdsfpksjer;ofghp9ouerhgp98ehg"
+  expiration: 24h
