@@ -1,22 +1,16 @@
 package controllers
 
 import (
-	"errors"
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v5"
-	"gorm.io/gorm"
-	"log"
-	"project/config"
 	"project/database"
 	"project/logging"
 	"project/models"
-	"strconv"
 )
 
 func GetCategories(c fiber.Ctx) error {
 	logging.Logger.Info("Request to get categories")
 
-	id, err2, done := checkUser(c)
+	id, err2, done := CheckUser(c)
 	if done {
 		return err2
 	}
@@ -27,9 +21,9 @@ func GetCategories(c fiber.Ctx) error {
 }
 
 func AddCategoryByUser(c fiber.Ctx) error {
-	logging.Logger.Info("Request to get categories")
+	logging.Logger.Info("Request to add category")
 
-	userId, err2, isCheck := checkUser(c)
+	userId, err2, isCheck := CheckUser(c)
 	if isCheck {
 		return err2
 	}
@@ -64,42 +58,4 @@ func AddCategoryByUser(c fiber.Ctx) error {
 	}
 
 	return c.JSON(category)
-}
-
-func checkUser(c fiber.Ctx) (uint, error, bool) {
-	cookie := c.Cookies("jwt")
-
-	secretKey := config.GetConfig().JWT.Secret
-	token, err := jwt.ParseWithClaims(cookie, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-
-	if err != nil {
-		return 0, c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
-		}), true
-	}
-
-	claims, ok := token.Claims.(*jwt.MapClaims)
-	if !ok {
-		return 0, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to parse claims",
-		}), true
-	}
-
-	id, _ := strconv.Atoi((*claims)["sub"].(string))
-	user := models.User{ID: uint(id)}
-
-	if err := database.DB.Where("id = ?", user.ID).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
-			}), true
-		}
-		log.Println("Database error:", err)
-		return 0, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Error retrieving user",
-		}), true
-	}
-	return uint(id), nil, false
 }

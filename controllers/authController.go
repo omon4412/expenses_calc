@@ -197,3 +197,41 @@ func Logout(c fiber.Ctx) error {
 		"message": "Logout successful",
 	})
 }
+
+func CheckUser(c fiber.Ctx) (uint, error, bool) {
+	cookie := c.Cookies("jwt")
+
+	secretKey := config.GetConfig().JWT.Secret
+	token, err := jwt.ParseWithClaims(cookie, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return 0, c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		}), true
+	}
+
+	claims, ok := token.Claims.(*jwt.MapClaims)
+	if !ok {
+		return 0, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to parse claims",
+		}), true
+	}
+
+	id, _ := strconv.Atoi((*claims)["sub"].(string))
+	user := models.User{ID: uint(id)}
+
+	if err := database.DB.Where("id = ?", user.ID).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			}), true
+		}
+		log.Println("Database error:", err)
+		return 0, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error retrieving user",
+		}), true
+	}
+	return uint(id), nil, false
+}
